@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metabolic Energy Flow & Efficiency Simulator</title>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-light: #3b82f6;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --waste: #ef4444;
+            --heat: #f59e0b;
+            --growth: #10b981;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); padding: 24px; line-height: 1.5; }
+        .container { max-width: 1000px; margin: 0 auto; }
+
+        header { background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; padding: 24px; border-radius: 12px; margin-bottom: 24px; text-align: center; }
+        header h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 6px; }
+        header p { opacity: 0.9; font-size: 0.95rem; }
+
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 2px; }
+        .tab-btn { padding: 10px 20px; background: none; border: none; font-size: 1rem; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+        .tab-content { display: none; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .tab-content.active { display: block; }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+
+        .control-group { margin-bottom: 20px; }
+        label { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 6px; font-size: 0.9rem; }
+        input[type="range"] { width: 100%; height: 6px; background: #cbd5e1; border-radius: 3px; outline: none; }
+
+        .preset-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
+        .btn { flex: 1; padding: 10px; border: 1px solid var(--border); background: #f1f5f9; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        .btn:hover { background: #e2e8f0; }
+        .btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        .flow-bar-container { margin-top: 16px; background: #f1f5f9; border-radius: 8px; padding: 16px; }
+        .flow-bar { display: flex; height: 32px; border-radius: 6px; overflow: hidden; margin-top: 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
+        .flow-segment { height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold; transition: width 0.3s ease; }
+        .segment-waste { background-color: var(--waste); }
+        .segment-heat { background-color: var(--heat); }
+        .segment-growth { background-color: var(--growth); }
+
+        .stat-card { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 16px; }
+        .stat-card h4 { font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+        .stat-card .value { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+
+        .legend { display: flex; gap: 16px; margin-top: 12px; font-size: 0.85rem; }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+        .quiz-option { padding: 12px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: 0.2s; }
+        .quiz-option:hover { background: #f1f5f9; }
+        .quiz-feedback { margin-top: 12px; padding: 12px; border-radius: 6px; display: none; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Animal Nutrition & Energy Budget Simulator</h1>
+        <p>Explore energy partitioning, mass conservation, and biological efficiency</p>
+    </header>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('modelB')">Model B: Energy Flow</button>
+        <button class="tab-btn" onclick="switchTab('modelA')">Model A: Mass Balance</button>
+        <button class="tab-btn" onclick="switchTab('quiz')">Self-Check Quiz</button>
+    </div>
+
+    <!-- TAB 1: MODEL B -->
+    <div id="modelB" class="tab-content active">
+        <div class="preset-buttons">
+            <button class="btn active" id="btn-elephant" onclick="loadPreset('elephant')">🐘 Elephant (Herbivore)</button>
+            <button class="btn" id="btn-lion" onclick="loadPreset('lion')">🦁 Lion (Carnivore)</button>
+        </div>
+
+        <div class="grid">
+            <div>
+                <h3>Energy Input & Losses</h3>
+                <div class="control-group" style="margin-top: 16px;">
+                    <label>Ingested Energy (Kcal/day): <span id="val-ingested">70000</span></label>
+                    <input type="range" id="input-ingested" min="5000" max="100000" step="1000" value="70000" oninput="updateModelB()">
+                </div>
+                <div class="control-group">
+                    <label>Egested Waste (%): <span id="val-waste">60</span>%</label>
+                    <input type="range" id="input-waste" min="5" max="80" value="60" oninput="updateModelB()">
+                </div>
+                <div class="control-group">
+                    <label>Respiration & Heat Loss (%): <span id="val-heat">38</span>%</label>
+                    <input type="range" id="input-heat" min="10" max="90" value="38" oninput="updateModelB()">
+                </div>
+            </div>
+
+            <div>
+                <h3>Metabolic Output Breakdown</h3>
+                <div class="stat-card">
+                    <h4>Available Biomass Accumulation (Growth)</h4>
+                    <div class="value" id="val-growth-kcal">1,400 Kcal (2%)</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Calculated Total Inefficiency</h4>
+                    <div class="value" id="val-inefficiency">98.0%</div>
+                </div>
+
+                <div class="flow-bar-container">
+                    <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Energy Partitioning Stream</div>
+                    <div class="flow-bar">
+                        <div id="bar-waste" class="flow-segment segment-waste" style="width: 60%;">60%</div>
+                        <div id="bar-heat" class="flow-segment segment-heat" style="width: 38%;">38%</div>
+                        <div id="bar-growth" class="flow-segment segment-growth" style="width: 2%;">2%</div>
+                    </div>
+                    <div class="legend">
+                        <div class="legend-item"><div class="legend-dot" style="background: var(--waste);"></div> Waste</div>
+                        <div class="legend-item"><div class="legend-dot" style="background: var(--heat);"></div> Respiration/Heat</div>
+                        <div class="legend-item"><div class="legend-dot" style="background: var(--growth);"></div> Growth</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: MODEL A -->
+    <div id="modelA" class="tab-content">
+        <h3>Model A: Mass Balance Calculator</h3>
+        <p style="color: var(--text-muted); margin-bottom: 20px;">Verify conservation of mass across dietary intake and metabolic loss.</p>
+
+        <div class="grid">
+            <div>
+                <div class="control-group">
+                    <label>Food Ingested Mass (g): <span id="val-mass-in">100</span>g</label>
+                    <input type="range" id="input-mass-in" min="10" max="500" value="100" oninput="updateModelA()">
+                </div>
+                <div class="control-group">
+                    <label>Egested Waste Mass (g): <span id="val-mass-waste">35</span>g</label>
+                    <input type="range" id="input-mass-waste" min="0" max="300" value="35" oninput="updateModelA()">
+                </div>
+                <div class="control-group">
+                    <label>Biomass Growth Mass (g): <span id="val-mass-growth">15</span>g</label>
+                    <input type="range" id="input-mass-growth" min="0" max="100" value="15" oninput="updateModelA()">
+                </div>
+            </div>
+
+            <div>
+                <div class="stat-card">
+                    <h4>Calculated Respiration Mass Loss (CO₂ + H₂O)</h4>
+                    <div class="value" id="val-mass-resp">50 g</div>
+                </div>
+                <div class="stat-card" id="mass-balance-status" style="background: #f0fdf4; border-color: #bbf7d0;">
+                    <h4 style="color: #166534;">Mass Balance Verification</h4>
+                    <div style="font-size: 1rem; color: #15803d; font-weight: 600; margin-top: 4px;" id="mass-equation-text">
+                        100g In = 15g Growth + 35g Waste + 50g Respiration
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: QUIZ -->
+    <div id="quiz" class="tab-content">
+        <h3>Concept Self-Check</h3>
+        <p style="color: var(--text-muted); margin-bottom: 16px;">Test your understanding of metabolic energy budgets.</p>
+
+        <div style="margin-bottom: 20px;">
+            <p style="font-weight: 600; margin-bottom: 10px;">1. Why does an elephant egest a much larger percentage of its ingested energy than a lion?</p>
+            <div class="quiz-option" onclick="checkQuiz(this, false, 'Incorrect. Elephants eat constantly, but plant material contains indigestible cellulose.')">A) Lions eat more total food per day than elephants.</div>
+            <div class="quiz-option" onclick="checkQuiz(this, true, 'Correct! Plant cell walls contain cellulose, which is largely indigestible, leading to high egested waste.')">B) Plant material contains cellulose, which is harder to digest than animal tissue.</div>
+            <div class="quiz-option" onclick="checkQuiz(this, false, 'Incorrect. Respiration accounts for heat and cellular activity, not egested waste.')">C) Elephants spend more energy running than lions.</div>
+            <div class="quiz-feedback" id="quiz-feedback-1"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    function loadPreset(type) {
+        document.getElementById('btn-elephant').classList.toggle('active', type === 'elephant');
+        document.getElementById('btn-lion').classList.toggle('active', type === 'lion');
+
+        if (type === 'elephant') {
+            document.getElementById('input-ingested').value = 70000;
+            document.getElementById('input-waste').value = 60;
+            document.getElementById('input-heat').value = 38;
+        } else {
+            document.getElementById('input-ingested').value = 25000;
+            document.getElementById('input-waste').value = 20;
+            document.getElementById('input-heat').value = 77;
+        }
+        updateModelB();
+    }
+
+    function updateModelB() {
+        const ingested = parseFloat(document.getElementById('input-ingested').value);
+        let wastePct = parseFloat(document.getElementById('input-waste').value);
+        let heatPct = parseFloat(document.getElementById('input-heat').value);
+
+        if (wastePct + heatPct > 99) {
+            heatPct = 99 - wastePct;
+            document.getElementById('input-heat').value = heatPct;
+        }
+
+        const growthPct = Math.max(0, 100 - wastePct - heatPct);
+        const growthKcal = Math.round(ingested * (growthPct / 100));
+        const inefficiency = (((wastePct + heatPct) / 100) * 100).toFixed(1);
+
+        document.getElementById('val-ingested').textContent = ingested.toLocaleString();
+        document.getElementById('val-waste').textContent = wastePct;
+        document.getElementById('val-heat').textContent = heatPct;
+        document.getElementById('val-growth-kcal').textContent = `${growthKcal.toLocaleString()} Kcal (${growthPct}%)`;
+        document.getElementById('val-inefficiency').textContent = `${inefficiency}%`;
+
+        document.getElementById('bar-waste').style.width = wastePct + '%';
+        document.getElementById('bar-waste').textContent = wastePct > 5 ? wastePct + '%' : '';
+        
+        document.getElementById('bar-heat').style.width = heatPct + '%';
+        document.getElementById('bar-heat').textContent = heatPct > 5 ? heatPct + '%' : '';
+
+        document.getElementById('bar-growth').style.width = growthPct + '%';
+        document.getElementById('bar-growth').textContent = growthPct > 3 ? growthPct + '%' : '';
+    }
+
+    function updateModelA() {
+        const massIn = parseFloat(document.getElementById('input-mass-in').value);
+        const waste = parseFloat(document.getElementById('input-mass-waste').value);
+        const growth = parseFloat(document.getElementById('input-mass-growth').value);
+
+        const resp = Math.max(0, massIn - waste - growth);
+
+        document.getElementById('val-mass-in').textContent = massIn;
+        document.getElementById('val-mass-waste').textContent = waste;
+        document.getElementById('val-mass-growth').textContent = growth;
+        document.getElementById('val-mass-resp').textContent = resp + ' g';
+
+        document.getElementById('mass-equation-text').textContent = `${massIn}g In = ${growth}g Growth + ${waste}g Waste + ${resp}g Respiration Loss`;
+    }
+
+    function checkQuiz(element, isCorrect, feedbackText) {
+        const feedbackEl = document.getElementById('quiz-feedback-1');
+        feedbackEl.style.display = 'block';
+        feedbackEl.textContent = feedbackText;
+        if (isCorrect) {
+            feedbackEl.style.backgroundColor = '#dcfce7';
+            feedbackEl.style.color = '#15803d';
+            element.style.borderColor = '#22c55e';
+        } else {
+            feedbackEl.style.backgroundColor = '#fee2e2';
+            feedbackEl.style.color = '#b91c1c';
+            element.style.borderColor = '#ef4444';
+        }
+    }
+
+    updateModelB();
+    updateModelA();
+</script>
+
+</body>
+</html>
